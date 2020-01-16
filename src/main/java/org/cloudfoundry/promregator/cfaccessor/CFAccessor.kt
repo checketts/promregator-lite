@@ -26,6 +26,7 @@ import org.cloudfoundry.reactor.client.ReactorCloudFoundryClient
 import org.cloudfoundry.reactor.tokenprovider.PasswordGrantTokenProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
@@ -39,6 +40,7 @@ import javax.annotation.PostConstruct
 private val logger = KotlinLogging.logger {  }
 
 @Service
+@ConditionalOnMissingBean(CFAccessor::class)
 class CFAccessor(
         val cf: CloudFoundryConfiguration,
         promregatorConfiguration: PromregatorConfiguration
@@ -57,7 +59,7 @@ class CFAccessor(
     }
 
     private fun connectionContext(proxyConfiguration: ProxyConfiguration?): DefaultConnectionContext {
-        if (PATTERN_HTTP_BASED_PROTOCOL_PREFIX.matcher(cf.apiHost).find()) {
+        if (PATTERN_HTTP_BASED_PROTOCOL_PREFIX.matcher(cf.apiHost?:"").find()) {
             throw ConfigurationException("cf.api_host configuration parameter must not contain an http(s)://-like prefix; specify the hostname only instead")
         }
         var connctx = DefaultConnectionContext.builder()
