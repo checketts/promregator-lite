@@ -3,15 +3,27 @@ package org.cloudfoundry.promregator.discovery
 import com.fasterxml.jackson.annotation.JsonGetter
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.LoadingCache
+import com.sun.management.HotSpotDiagnosticMXBean
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics
+import io.netty.util.internal.PlatformDependent
 import mu.KotlinLogging
 import org.cloudfoundry.promregator.config.ScrapeTarget
 import org.cloudfoundry.promregator.scanner.Instance
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.server.reactive.ServerHttpRequest
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import reactor.core.publisher.Mono
+import java.io.IOException
+import java.lang.management.ManagementFactory
+import java.time.Duration
 import java.util.*
+import java.util.concurrent.atomic.AtomicInteger
+
 
 private var logger = KotlinLogging.logger {}
 
@@ -20,10 +32,16 @@ class DiscoveryController(
         private val discoverer: CFMultiDiscoverer,
         @Value("\${promregator.discovery.hostname:#{null}}") private val myHostname: String? = null,
         @Value("\${promregator.discovery.port:#{null}}") private val myPort: Int? = null,
-        val mapper: ObjectMapper
+        @Value("\${promregator.discovery.cache.duration:300s}") private val discoveryCacheDuration: Duration,
+        val mapper: ObjectMapper,
+        private val meterRegistry: MeterRegistry
 ) {
-    @GetMapping("/v2/discovery")
-    fun discoverTaragets(request: ServerHttpRequest): Mono<List<DiscoveryResponse>> {
+    private val directMemoryGauge = meterRegistry.gauge("promregator.netty.memory.direct.used", this, { PlatformDependent.usedDirectMemory().toDouble()})
+    private final val latestTargetCount = AtomicInteger(0)
+    private val discoveryResponse: LoadingCache<String, Mono<List<DiscoveryResponse>>> = CaffeineCacheMetrics.monitor(meterRegistry, Caffeine.newBuilder()
+            .expireAfterWrite(discoveryCacheDuration)
+            .recordStats()
+            .build { _: String->
         val localHostname: String = this.myHostname ?: ""// request.localName
         val localPort: Int = this.myPort ?: 0 // request.localPort
         val targets = listOf("$localHostname:$localPort")
@@ -32,11 +50,12 @@ class DiscoveryController(
 
         val instancesMono: Mono<List<Instance>> = this.discoverer.discover(null, null)
 
-        return instancesMono.map {instances ->
+        instancesMono.map {instances ->
             if (instances.isEmpty()) {
                 throw RuntimeException("No targets configured")
             }
 
+            latestTargetCount.set(instances.size)
             logger.info { "Returning discovery document with ${instances.size} targets" }
 
             instances.map {
@@ -61,8 +80,24 @@ class DiscoveryController(
                                 instanceNumber = it.instanceNumber,
                                 instanceId = it.instanceId))
             }
-        }
+
+        }.cache()
+    }, "discoveryResponse")
+
+    init {
+        meterRegistry.gauge("promregator.discovery.targets", latestTargetCount) {it.toDouble()}
     }
+
+    @GetMapping("/dumpHeap")
+    fun dumpHeap(@RequestParam filePath: String = "heap.hprof",  @RequestParam live: Boolean = true) {
+        val server = ManagementFactory.getPlatformMBeanServer()
+        val mxBean = ManagementFactory.newPlatformMXBeanProxy(
+                server, "com.sun.management:type=HotSpotDiagnostic", HotSpotDiagnosticMXBean::class.java)
+        mxBean.dumpHeap(filePath, live)
+    }
+
+    @GetMapping("/v2/discovery","/discovery")
+    fun discoverTaragets()= discoveryResponse.get("all")
 
     data class DiscoveryLabel(
             @JsonProperty("__meta_promregator_target_path") val targetPath: String,

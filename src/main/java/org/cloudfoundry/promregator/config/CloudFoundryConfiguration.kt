@@ -9,6 +9,7 @@ class CloudFoundryConfiguration(
         val apiHost: String?,
         val username: String?,
         val password: String?,
+        val apiPort: Int = 443,
         val skipSslValidation: Boolean = false,
         val proxy: ProxyConfig? = null,
         val request: RequestConfig = RequestConfig(),

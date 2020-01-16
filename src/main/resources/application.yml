@@ -1,0 +1,23 @@
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health, info, prometheus, env"
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    cloudfoundry-client:
+      token: DEBUG
+    org:
+      cloudfoundry:
+        promregator: INFO
+        promregator.scraping.ScrapingController: WARN
+
+    # To be enabled, if ActiveMQ logging shall be activated - see also http://activemq.apache.org/how-do-i-enable-debug-logging.html
+    #      apache:
+    #        activemq: DEBUG
+
+    io.netty.util.internal.PlatformDependent: DEBUG

@@ -19,18 +19,17 @@ class PromregatorApplication {
 
     @Bean
     fun clock(): Clock = Clock.systemUTC()
-
-    @Bean
-    fun renameRegionTagMeterFilter(): MeterFilter {
-        return MeterFilter.replaceTagValues("uri",
-                java.util.function.Function<String, String> {
-                    if (it.contains("?q=")) it.substring(0, it.indexOf("?q=")) + "?q=_query_" else it
-                })
-
-    }
+//
+//    @Bean
+//    fun renameRegionTagMeterFilter(): MeterFilter {
+//        return MeterFilter.replaceTagValues("uri",
+//                java.util.function.Function<String, String> {
+//                    if (it.contains("?q=")) it.substring(0, it.indexOf("?q=")) + "?q=_query_" else it
+//                })
+//    }
 }
 
 fun main(args: Array<String>) {
-    BlockHound.install()
+//    BlockHound.install() //Disabled since CF is reporting 'No compatible attachment provider is available'
     runApplication<PromregatorApplication>(*args)
 }

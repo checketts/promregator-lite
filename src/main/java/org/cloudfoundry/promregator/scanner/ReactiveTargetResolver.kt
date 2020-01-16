@@ -30,8 +30,8 @@ class ReactiveTargetResolver(
 
     private data class CFApiMemoizer(
             val retrieveOrgId: ConcurrentHashMap<String, Mono<OrganizationResource>> = ConcurrentHashMap(),
-            val retrieveSpaceIdsInOrg: ConcurrentHashMap<String, Mono<ListSpacesResponse>> = ConcurrentHashMap(),
-            val retrieveAllApplicationIdsInSpace: ConcurrentHashMap<String, Mono<ListApplicationsResponse>> = ConcurrentHashMap()
+            val retrieveSpaceIdsInOrg: ConcurrentHashMap<String, Flux<SpaceResource>> = ConcurrentHashMap(),
+            val retrieveAllApplicationIdsInSpace: ConcurrentHashMap<String, Flux<ApplicationResource>> = ConcurrentHashMap()
     ) {
     }
 
@@ -104,9 +104,7 @@ class ReactiveTargetResolver(
             }.flux()
         }
         // Case 1 & 2: Get all orgs from the platform
-        val responseMono = cfAccessor.retrieveAllOrgIds()
-        var orgResFlux = responseMono.map { obj: ListOrganizationsResponse -> obj.resources }
-                .flatMapMany { Flux.fromIterable(it!!) }
+        var orgResFlux = cfAccessor.retrieveAllOrgIds()
         if (intTarget.configTarget.orgRegex != null) { // Case 2
             val filterPattern = Pattern.compile(intTarget.configTarget.orgRegex!!, Pattern.CASE_INSENSITIVE)
             orgResFlux = orgResFlux.filter { orgRes: OrganizationResource ->
@@ -146,13 +144,11 @@ class ReactiveTargetResolver(
             return itMono.flux()
         }
         // Case 1 & 2: Get all spaces in the current org
-        val responseMono = memoizer.retrieveSpaceIdsInOrg.computeIfAbsent(intTarget.resolvedOrgId!!) {
+        var spaceResFlux = memoizer.retrieveSpaceIdsInOrg.computeIfAbsent(intTarget.resolvedOrgId!!) {
             cfAccessor.retrieveSpaceIdsInOrg(intTarget.resolvedOrgId!!)
                     .doOnNext { logger.info { "retrieveSpaceIdsInOrg:${intTarget.resolvedOrgId!!}" } }
                     .cache()
         }
-        var spaceResFlux = responseMono.map { obj: ListSpacesResponse -> obj.resources }
-                .flatMapMany { it: List<SpaceResource>? -> Flux.fromIterable(it!!) }
         if (intTarget.configTarget.spaceRegex != null) { // Case 2
             val filterPattern = Pattern.compile(intTarget.configTarget.spaceRegex!!, Pattern.CASE_INSENSITIVE)
             spaceResFlux = spaceResFlux.filter { spaceRes: SpaceResource ->
@@ -177,8 +173,6 @@ class ReactiveTargetResolver(
         if (intTarget.configTarget.applicationRegex == null && intTarget.configTarget.applicationName != null) { // Case 3: we have the applicationName, but we also need its id
             val appNameToSearchFor = intTarget.configTarget.applicationName!!.toLowerCase(Locale.ENGLISH)
             val itMono = cfAccessor.retrieveAllApplicationIdsInSpace(intTarget.resolvedOrgId!!, intTarget.resolvedSpaceId!!)
-                    .map { obj: ListApplicationsResponse -> obj.resources }
-                    .flatMapMany { Flux.fromIterable(it!!) }
                     .filter { appResource: ApplicationResource -> appNameToSearchFor == appResource.entity.name.toLowerCase(Locale.ENGLISH) }
                     .single()
                     .doOnError { e: Throwable? ->
@@ -197,15 +191,12 @@ class ReactiveTargetResolver(
             return itMono.flux()
         }
         // Case 1 & 2: Get all applications in the current space
-        val responseMono = memoizer.retrieveAllApplicationIdsInSpace.computeIfAbsent("${intTarget.resolvedOrgId!!}:${intTarget.resolvedSpaceId!!}") {
+        var appResFlux = memoizer.retrieveAllApplicationIdsInSpace.computeIfAbsent("${intTarget.resolvedOrgId!!}:${intTarget.resolvedSpaceId!!}") {
             cfAccessor.retrieveAllApplicationIdsInSpace(intTarget.resolvedOrgId!!, intTarget.resolvedSpaceId!!)
                     .doOnNext { logger.info { "retrieveAllApplicationIdsInSpace:${intTarget.resolvedOrgId!!}:${intTarget.resolvedSpaceId!!}" } }
                     .cache()
-        }
-            var appResFlux = responseMono.map { obj: ListApplicationsResponse -> obj.resources }
-                    .flatMapMany { Flux.fromIterable(it!!) }
-                    .doOnError { e: Throwable? -> logger.warn(e) { "Error on retrieving list of applications in org '${intTarget.resolvedOrgName}' and space '${intTarget.resolvedSpaceName}'" } }
-                    .onErrorResume { _: Throwable? -> Flux.empty() }
+        }.doOnError { e: Throwable? -> logger.warn(e) { "Error on retrieving list of applications in org '${intTarget.resolvedOrgName}' and space '${intTarget.resolvedSpaceName}'" } }
+                .onErrorResume { _: Throwable? -> Flux.empty() }
 
         if (intTarget.configTarget.applicationRegex != null) { // Case 2
             val filterPattern = Pattern.compile(intTarget.configTarget.applicationRegex!!, Pattern.CASE_INSENSITIVE)

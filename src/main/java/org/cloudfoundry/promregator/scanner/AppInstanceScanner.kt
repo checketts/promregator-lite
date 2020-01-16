@@ -41,10 +41,10 @@ class AppInstanceScanner(
                          var accessURL: String? = null,
                          var numberOfInstances: Int = 0)
 
-    fun determineInstancesFromTargets(targets: List<ResolvedTarget>?, 
-                                      applicationIdFilter: Predicate<in String?>?, 
-                                      instanceFilter: Predicate<in Instance?>?): Mono<List<Instance>> {
-        val instancesFlux = Flux.fromIterable(targets!!) //Create the holder
+    fun determineInstancesFromTargets(targets: List<ResolvedTarget>,
+                                      applicationIdFilter: Predicate<in String?>? = null,
+                                      instanceFilter: Predicate<in Instance?>? = null): Mono<List<Instance>> {
+        val instancesFlux = Flux.fromIterable(targets) //Create the holder
                 .map { target: ResolvedTarget -> OSAVector(target) } //Look up org info
                 .flatMap { v: OSAVector ->
                     getOrgId(v.target.orgName).map { orgId: String? ->
