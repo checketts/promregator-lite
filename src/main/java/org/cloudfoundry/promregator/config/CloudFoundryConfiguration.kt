@@ -2,27 +2,45 @@ package org.cloudfoundry.promregator.config
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.ConstructorBinding
+import java.time.Duration
 
 @ConstructorBinding
 @ConfigurationProperties(prefix = "cf")
 class CloudFoundryConfiguration(
-        val apiHost: String?,
-        val username: String?,
-        val password: String?,
-        val apiPort: Int = 443,
-        val skipSslValidation: Boolean = false,
-        val proxy: ProxyConfig? = null,
+        apiHost: String?,
+        username: String?,
+        password: String?,
+        apiPort: Int = 443,
+        skipSslValidation: Boolean = false,
+        proxy: ProxyConfig? = null,
+        connectionPool: ConnectionPoolConfig = ConnectionPoolConfig(),
+        threadPool: ThreadPoolConfig = ThreadPoolConfig(),
         val request: RequestConfig = RequestConfig(),
-        val connectionPool: ConnectionPoolConfig = ConnectionPoolConfig(),
-        val threadPool: ThreadPoolConfig = ThreadPoolConfig(),
-        val api: List<ApiConfig> = listOf()
-)
+        val api: MutableMap<String, ApiConfig> = mutableMapOf()
+) {
+    init {
+        if (api["__default__"] == null && apiHost != null && username != null && password != null) api["__default__"] = ApiConfig(
+                host = apiHost,
+                username = username,
+                password = password,
+                proxy = proxy,
+                port = apiPort,
+                skipSslValidation = skipSslValidation,
+                connectionPool = connectionPool,
+                threadPool = threadPool
+        )
+    }
+}
 
 data class ApiConfig(
-        val id: String,
         val host: String,
         val username: String,
-        val password: String
+        val password: String,
+        val proxy: ProxyConfig? = null,
+        val port: Int = 443,
+        val skipSslValidation: Boolean = false,
+        val connectionPool: ConnectionPoolConfig = ConnectionPoolConfig(),
+        val threadPool: ThreadPoolConfig = ThreadPoolConfig()
 )
 
 data class ProxyConfig(
@@ -31,7 +49,8 @@ data class ProxyConfig(
 )
 
 data class RequestConfig(
-        val timeout: TimeoutConfig = TimeoutConfig()
+        val timeout: TimeoutConfig = TimeoutConfig(),
+        val cacheDuration: Duration = Duration.ofSeconds(30)
 )
 
 data class TimeoutConfig(
@@ -45,7 +64,7 @@ data class ConnectionPoolConfig(
         val size: Int? = null
 )
 
-
 data class ThreadPoolConfig(
         val size: Int? = null
 )
+

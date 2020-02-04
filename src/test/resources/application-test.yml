@@ -1,1 +1,1 @@
-cf.api.enabled: false
+cf.api.client.enabled: false

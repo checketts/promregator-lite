@@ -13,12 +13,14 @@ java.sourceCompatibility = JavaVersion.VERSION_1_8
 
 repositories {
 	mavenCentral()
+	maven { url= uri("https://repo.spring.io/snapshot") }
 	maven(url ="https://jitpack.io")
 }
 
 dependencyManagement {
 	dependencies {
-		dependency("io.projectreactor.netty:reactor-netty:0.9.4.RELEASE") //Upgrade to avoid https://github.com/reactor/reactor-netty/issues/969
+		dependency("io.projectreactor.netty:reactor-netty:0.9.5.BUILD-SNAPSHOT") //Upgrade to avoid https://github.com/reactor/reactor-netty/issues/969
+//		dependency("io.projectreactor.netty:reactor-netty:0.9.4.RELEASE") //Upgrade to avoid https://github.com/reactor/reactor-netty/issues/969
 	}
 }
 
@@ -39,8 +41,8 @@ dependencies {
 	//CF API
 	implementation("com.github.checketts.cf-java-client:cloudfoundry-client-reactor:refresh-token-leak-SNAPSHOT")
 	implementation("com.github.checketts.cf-java-client:cloudfoundry-operations:refresh-token-leak-SNAPSHOT")
-	implementation("org.cloudfoundry:cloudfoundry-client-reactor:4.3.0.RELEASE")
-	implementation("org.cloudfoundry:cloudfoundry-operations:4.3.0.RELEASE")
+//	implementation("org.cloudfoundry:cloudfoundry-client-reactor:4.3.0.RELEASE")
+//	implementation("org.cloudfoundry:cloudfoundry-operations:4.3.0.RELEASE")
 
 	testImplementation("org.springframework.boot:spring-boot-starter-test") {
 		exclude(group = "org.junit.vintage", module = "junit-vintage-engine")

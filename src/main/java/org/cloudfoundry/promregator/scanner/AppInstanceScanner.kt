@@ -5,21 +5,21 @@ import org.cloudfoundry.client.v2.organizations.ListOrganizationsResponse
 import org.cloudfoundry.client.v2.spaces.GetSpaceSummaryResponse
 import org.cloudfoundry.client.v2.spaces.ListSpacesResponse
 import org.cloudfoundry.client.v2.spaces.SpaceApplicationSummary
-import org.cloudfoundry.promregator.cfaccessor.CFAccessor
+import org.cloudfoundry.promregator.cfaccessor.ReactiveCFAccessor
 import org.springframework.stereotype.Service
 import org.springframework.util.CollectionUtils
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 import java.lang.RuntimeException
 import java.util.*
-import java.util.function.Predicate
 import java.util.regex.Pattern
 
 private val logger = KotlinLogging.logger {}
 
 @Service
 class AppInstanceScanner(
-        private val cfAccessor: CFAccessor
+        private val cfAccessor: ReactiveCFAccessor
 ) {
     /*
 	 * see also https://github.com/promregator/promregator/issues/76
@@ -41,27 +41,25 @@ class AppInstanceScanner(
                          var accessURL: String? = null,
                          var numberOfInstances: Int = 0)
 
-    fun determineInstancesFromTargets(targets: List<ResolvedTarget>,
-                                      applicationIdFilter: Predicate<in String?>? = null,
-                                      instanceFilter: Predicate<in Instance?>? = null): Mono<List<Instance>> {
-        val instancesFlux = Flux.fromIterable(targets) //Create the holder
+    fun determineInstancesFromTargets(targets: List<ResolvedTarget>): Mono<List<Instance>> {
+        val instancesFlux = Flux.fromIterable(targets).parallel().runOn(Schedulers.parallel())//Create the holder
                 .map { target: ResolvedTarget -> OSAVector(target) } //Look up org info
                 .flatMap { v: OSAVector ->
-                    getOrgId(v.target.orgName).map { orgId: String? ->
+                    getOrgId(v.target.originalTarget.api, v.target.orgName).map { orgId: String? ->
                         v.orgId = orgId
                         v
                     }
                 } //Look up space
                 .flatMap { v: OSAVector ->
                     val orgId = v.orgId ?: return@flatMap Mono.empty<OSAVector>()
-                    getSpaceId(orgId, v.target.spaceName).map { spaceId: String? ->
+                    getSpaceId(v.target.originalTarget.api, orgId, v.target.spaceName).map { spaceId: String? ->
                         v.spaceId = spaceId
                         v
                     }
                 } //Look up applicationId, accessUrl, and instance count
                 .flatMap { v: OSAVector ->
                     val spaceId = v.spaceId ?: return@flatMap Mono.empty<OSAVector>()
-                    getSpaceSummary(spaceId).flatMap { spaceSummaryMap: Map<String?, SpaceApplicationSummary?> ->
+                    getSpaceSummary(v.target.originalTarget.api, spaceId).flatMap { spaceSummaryMap: Map<String?, SpaceApplicationSummary?> ->
                         val sas = spaceSummaryMap[v.target.applicationName.toLowerCase(LOCALE_OF_LOWER_CASE_CONVERSION_FOR_IDENTIFIER_COMPARISON)] 
                                 ?: return@flatMap Mono.empty<OSAVector>()
                         
@@ -72,8 +70,7 @@ class AppInstanceScanner(
                         v.numberOfInstances = sas.instances
                         Mono.just(v)
                     }
-                } // perform pre-filtering, if available
-                .filter { v: OSAVector -> applicationIdFilter == null || applicationIdFilter.test(v.applicationId) } //convert to instances
+                }//convert to instances
                 .flatMap { v: OSAVector ->
                     val instances: MutableList<Instance> = ArrayList(v.numberOfInstances)
                     for (i in 0 until v.numberOfInstances) {
@@ -81,13 +78,12 @@ class AppInstanceScanner(
                         instances.add(inst)
                     }
                     Flux.fromIterable(instances)
-                } // perform pre-filtering, if available
-                .filter { instance: Instance? -> instanceFilter == null || instanceFilter.test(instance) }
-        return instancesFlux.collectList()
+                }
+        return instancesFlux.sequential().collectList()
     }
 
-    private fun getOrgId(orgNameString: String): Mono<String> {
-        return cfAccessor.retrieveOrgId(orgNameString).flatMap { response: ListOrganizationsResponse ->
+    private fun getOrgId(api: String, orgNameString: String): Mono<String> {
+        return cfAccessor.retrieveOrgId(api, orgNameString).flatMap { response: ListOrganizationsResponse ->
             val resources = response.resources ?: return@flatMap Mono.empty<String>()
             if (resources.isEmpty()) {
                 logger.warn {"Received empty result on requesting org $orgNameString" }
@@ -100,8 +96,8 @@ class AppInstanceScanner(
         }.cache()
     }
 
-    private fun getSpaceId(orgIdString: String, spaceNameString: String): Mono<String> {
-        val listSpacesResponse = cfAccessor.retrieveSpaceId(orgIdString, spaceNameString)
+    private fun getSpaceId(api: String, orgIdString: String, spaceNameString: String): Mono<String> {
+        val listSpacesResponse = cfAccessor.retrieveSpaceId(api, orgIdString, spaceNameString)
         return listSpacesResponse.flatMap { response: ListSpacesResponse ->
             val resources = response.resources ?: return@flatMap Mono.empty<String>()
             if (resources.isEmpty()) {
@@ -116,8 +112,8 @@ class AppInstanceScanner(
         }.cache()
     }
 
-    private fun getSpaceSummary(spaceIdString: String): Mono<Map<String?, SpaceApplicationSummary?>> {
-        return cfAccessor.retrieveSpaceSummary(spaceIdString)
+    private fun getSpaceSummary(api: String, spaceIdString: String): Mono<Map<String?, SpaceApplicationSummary?>> {
+        return cfAccessor.retrieveSpaceSummary(api, spaceIdString)
                 .flatMap<Map<String?, SpaceApplicationSummary?>> { response: GetSpaceSummaryResponse ->
                     val applications = response.applications
                             ?: return@flatMap Mono.empty()

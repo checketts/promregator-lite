@@ -36,21 +36,30 @@ class DiscoveryController(
         val mapper: ObjectMapper,
         private val meterRegistry: MeterRegistry
 ) {
-    private val directMemoryGauge = meterRegistry.gauge("promregator.netty.memory.direct.used", this, { PlatformDependent.usedDirectMemory().toDouble()})
+    private val directMemoryGauge = meterRegistry.gauge("promregator.netty.memory.direct.used", this, { PlatformDependent.usedDirectMemory().toDouble() })
     private final val latestTargetCount = AtomicInteger(0)
-    private val discoveryResponse: LoadingCache<String, Mono<List<DiscoveryResponse>>> = CaffeineCacheMetrics.monitor(meterRegistry, Caffeine.newBuilder()
-            .expireAfterWrite(discoveryCacheDuration)
-            .recordStats()
-            .build { _: String->
+
+    init {
+        meterRegistry.gauge("promregator.discovery.targets", latestTargetCount) { it.toDouble() }
+    }
+
+    @GetMapping("/dumpHeap")
+    fun dumpHeap(@RequestParam filePath: String = "heap.hprof", @RequestParam live: Boolean = true) {
+        val server = ManagementFactory.getPlatformMBeanServer()
+        val mxBean = ManagementFactory.newPlatformMXBeanProxy(
+                server, "com.sun.management:type=HotSpotDiagnostic", HotSpotDiagnosticMXBean::class.java)
+        mxBean.dumpHeap(filePath, live)
+    }
+
+    @GetMapping("/v2/discovery", "/discovery")
+    fun discoverTargets(): Mono<List<DiscoveryResponse>> {
         val localHostname: String = this.myHostname ?: ""// request.localName
         val localPort: Int = this.myPort ?: 0 // request.localPort
         val targets = listOf("$localHostname:$localPort")
 
         logger.info { "Using scraping target $targets in discovery response" }
 
-        val instancesMono: Mono<List<Instance>> = this.discoverer.discover(null, null)
-
-        instancesMono.map {instances ->
+        return this.discoverer.discover().map { instances ->
             if (instances.isEmpty()) {
                 throw RuntimeException("No targets configured")
             }
@@ -58,46 +67,21 @@ class DiscoveryController(
             latestTargetCount.set(instances.size)
             logger.info { "Returning discovery document with ${instances.size} targets" }
 
-            instances.map {
-                val scrapeTarget = ScrapeTarget(
-                        applicationId = it.applicationId,
-                        applicationName = it.target.applicationName,
-                        scrapeUrl = it.accessUrl ?: "",
-                        instanceNumber = it.instanceNumber,
-                        authId = it.target.originalTarget.authenticatorId
-                )
-                val scrapeJson = Base64.getEncoder().encodeToString(mapper.writeValueAsString(scrapeTarget).toByteArray())
-                if (scrapeJson.length > 2000) {
-                    logger.warn { "The singleTargetScraping url for ${it.target.applicationName} (${it.target.applicationId}) it greater than 2000 characters and might not be scrapable" }
-                }
+            instances.map { (hash, it) ->
                 DiscoveryResponse(targets,
                         DiscoveryLabel(
-                                targetPath = "/v2/singleTargetScraping/$scrapeJson",
+                                targetPath = "/v2/singleTargetScraping/${it.target.applicationName}/${it.instanceNumber}/$hash",
                                 orgName = it.target.orgName,
                                 spaceName = it.target.spaceName,
                                 applicationName = it.target.applicationName,
                                 applicationId = it.applicationId,
                                 instanceNumber = it.instanceNumber,
-                                instanceId = it.instanceId))
+                                instanceId = it.instanceId,
+                                api = it.target.originalTarget.api))
             }
+        }
 
-        }.cache()
-    }, "discoveryResponse")
-
-    init {
-        meterRegistry.gauge("promregator.discovery.targets", latestTargetCount) {it.toDouble()}
     }
-
-    @GetMapping("/dumpHeap")
-    fun dumpHeap(@RequestParam filePath: String = "heap.hprof",  @RequestParam live: Boolean = true) {
-        val server = ManagementFactory.getPlatformMBeanServer()
-        val mxBean = ManagementFactory.newPlatformMXBeanProxy(
-                server, "com.sun.management:type=HotSpotDiagnostic", HotSpotDiagnosticMXBean::class.java)
-        mxBean.dumpHeap(filePath, live)
-    }
-
-    @GetMapping("/v2/discovery","/discovery")
-    fun discoverTaragets()= discoveryResponse.get("all")
 
     data class DiscoveryLabel(
             @JsonProperty("__meta_promregator_target_path") val targetPath: String,
@@ -106,7 +90,8 @@ class DiscoveryController(
             @JsonProperty("__meta_promregator_target_applicationName") val applicationName: String,
             @JsonProperty("__meta_promregator_target_applicationId") val applicationId: String,
             @JsonProperty("__meta_promregator_target_instanceNumber") val instanceNumber: String,
-            @JsonProperty("__meta_promregator_target_instanceId") val instanceId: String) {
+            @JsonProperty("__meta_promregator_target_instanceId") val instanceId: String,
+            @JsonProperty("__meta_promregator_target_api") val api: String) {
 
         @JsonGetter("__metrics_path__")
         fun getMetricsPath() = this.targetPath

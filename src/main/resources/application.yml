@@ -11,13 +11,25 @@ logging:
   level:
     cloudfoundry-client:
       token: DEBUG
+      request: DEBUG
+      response: DEBUG
     org:
       cloudfoundry:
         promregator: INFO
-        promregator.scraping.ScrapingController: WARN
+        promregator.scanner: WARN
+        promregator.scraping.ScrapingController: INFO
 
     # To be enabled, if ActiveMQ logging shall be activated - see also http://activemq.apache.org/how-do-i-enable-debug-logging.html
     #      apache:
     #        activemq: DEBUG
 
     io.netty.util.internal.PlatformDependent: DEBUG
+#    reactor:
+#      Mono:
+#        ipc:
+#          netty:
+#            http: DEBUG
+#            channel: DEBUG
+
+    reactor.netty.http.client.HttpClient: DEBUG
+#    org.cloudfoundry.promregator.cfaccessor.CustomLogger: DEBUG

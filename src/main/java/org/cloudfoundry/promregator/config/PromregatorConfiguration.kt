@@ -19,6 +19,7 @@ class PromregatorConfiguration(
 )
 
 data class Target(
+        val api: String = "__default__" ,
         val orgName: String? = null,
         val orgRegex: String? = null,
         val spaceName: String? = null,
