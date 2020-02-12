@@ -3,25 +3,18 @@ package org.cloudfoundry.promregator.discovery
 import com.fasterxml.jackson.annotation.JsonGetter
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.github.benmanes.caffeine.cache.Caffeine
-import com.github.benmanes.caffeine.cache.LoadingCache
 import com.sun.management.HotSpotDiagnosticMXBean
 import io.micrometer.core.instrument.MeterRegistry
-import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics
 import io.netty.util.internal.PlatformDependent
 import mu.KotlinLogging
-import org.cloudfoundry.promregator.config.ScrapeTarget
-import org.cloudfoundry.promregator.scanner.Instance
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.http.server.reactive.ServerHttpRequest
+import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import reactor.core.publisher.Mono
-import java.io.IOException
 import java.lang.management.ManagementFactory
 import java.time.Duration
-import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 
 
@@ -51,7 +44,7 @@ class DiscoveryController(
         mxBean.dumpHeap(filePath, live)
     }
 
-    @GetMapping("/v2/discovery", "/discovery")
+    @GetMapping("/v2/discovery", "/discovery", produces = [MediaType.APPLICATION_JSON_VALUE])
     fun discoverTargets(): Mono<List<DiscoveryResponse>> {
         val localHostname: String = this.myHostname ?: ""// request.localName
         val localPort: Int = this.myPort ?: 0 // request.localPort

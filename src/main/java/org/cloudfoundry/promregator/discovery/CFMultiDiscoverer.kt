@@ -5,20 +5,12 @@ import com.github.benmanes.caffeine.cache.LoadingCache
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics
 import mu.KotlinLogging
-import org.cloudfoundry.client.v2.applications.ApplicationResource
-import org.cloudfoundry.client.v2.organizations.OrganizationResource
-import org.cloudfoundry.client.v2.spaces.SpaceResource
-import java.util.function.Predicate
 import org.cloudfoundry.promregator.config.PromregatorConfiguration
-import org.cloudfoundry.promregator.config.ScrapeTarget
 import org.cloudfoundry.promregator.scanner.Instance
 import org.cloudfoundry.promregator.scanner.AppInstanceScanner
 import org.cloudfoundry.promregator.scanner.ReactiveTargetResolver
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 
 private val logger = KotlinLogging.logger {}
 @Service
