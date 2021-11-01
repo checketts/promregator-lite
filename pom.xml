@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>2.5.6</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.github.com</groupId>
+	<artifactId>promregator</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>promregator</name>
+	<description>Prometheus/CloudFoundry Metrics Aggregator</description>
+	<properties>
+		<java.version>11</java.version>
+		<kotlin.version>1.5.31</kotlin.version>
+		<cloudfoundry.client.version>4.16.0.RELEASE</cloudfoundry.client.version>
+		<prometheus.version>0.9.0</prometheus.version>
+
+		<!-- Warning! This should be in line to what spring-framework uses. Unfortunately,
+			there is no global constant provided by spring-boot for the version. -->
+		<guava-version>30.1-jre</guava-version>
+
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webflux</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.fasterxml.jackson.module</groupId>
+			<artifactId>jackson-module-kotlin</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.projectreactor.kotlin</groupId>
+			<artifactId>reactor-kotlin-extensions</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.jetbrains.kotlin</groupId>
+			<artifactId>kotlin-reflect</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.jetbrains.kotlin</groupId>
+			<artifactId>kotlin-stdlib-jdk8</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.jetbrains.kotlinx</groupId>
+			<artifactId>kotlinx-coroutines-reactor</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.jetbrains.kotlinx</groupId>
+			<artifactId>kotlinx-coroutines-jdk8</artifactId>
+			<version>1.5.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.jetbrains.kotlinx</groupId>
+			<artifactId>kotlinx-coroutines-reactive</artifactId>
+			<version>1.5.2</version>
+		</dependency>
+
+		<dependency>
+			<groupId>io.github.microutils</groupId>
+			<artifactId>kotlin-logging-jvm</artifactId>
+			<version>2.0.11</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+<!--			<version>${micrometer.version}</version>-->
+		</dependency>
+
+
+
+		<!-- CF API -->
+		<dependency>
+			<groupId>org.cloudfoundry</groupId>
+			<artifactId>cloudfoundry-client-reactor</artifactId>
+			<version>${cloudfoundry.client.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.cloudfoundry</groupId>
+			<artifactId>cloudfoundry-operations</artifactId>
+			<version>${cloudfoundry.client.version}</version>
+		</dependency>
+
+<!--		&lt;!&ndash; Prometheus stuff &ndash;&gt;-->
+<!--		<dependency>-->
+<!--			<groupId>io.prometheus</groupId>-->
+<!--			<artifactId>simpleclient</artifactId>-->
+<!--			<version>${prometheus.version}</version>-->
+<!--		</dependency>-->
+<!--		<dependency>-->
+<!--			<groupId>io.prometheus</groupId>-->
+<!--			<artifactId>simpleclient_common</artifactId>-->
+<!--			<version>${prometheus.version}</version>-->
+<!--		</dependency>-->
+<!--		&lt;!&ndash; Hotspot JVM metrics &ndash;&gt;-->
+<!--		<dependency>-->
+<!--			<groupId>io.prometheus</groupId>-->
+<!--			<artifactId>simpleclient_hotspot</artifactId>-->
+<!--			<version>${prometheus.version}</version>-->
+<!--		</dependency>-->
+<!--		&lt;!&ndash; Caffeine metrics &ndash;&gt;-->
+<!--		<dependency>-->
+<!--			<groupId>io.prometheus</groupId>-->
+<!--			<artifactId>simpleclient_caffeine</artifactId>-->
+<!--			<version>${prometheus.version}</version>-->
+<!--		</dependency>-->
+
+
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-configuration-processor</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.projectreactor</groupId>
+			<artifactId>reactor-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
+		<testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.jetbrains.kotlin</groupId>
+				<artifactId>kotlin-maven-plugin</artifactId>
+				<configuration>
+					<args>
+						<arg>-Xjsr305=strict -Xopt-in=kotlin.RequiresOptIn</arg>
+					</args>
+					<compilerPlugins>
+						<plugin>spring</plugin>
+					</compilerPlugins>
+				</configuration>
+				<dependencies>
+					<dependency>
+						<groupId>org.jetbrains.kotlin</groupId>
+						<artifactId>kotlin-maven-allopen</artifactId>
+						<version>${kotlin.version}</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

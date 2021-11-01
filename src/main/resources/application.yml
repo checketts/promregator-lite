@@ -1,0 +1,61 @@
+server:
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
+
+# By default, spring configures tomcat-embedded to permit up to 200 worker threads.
+# Our worker threads are "heavy-duty" - and we won't survive 200 parallel requests 
+# in usual configuration environment. 
+# High values here may get especially dangerous if there is something blocking
+# the processing in general and HTTP requests can't be responded on properly.
+# Then we queue up more and more workers (which can't complete), eating up
+# memory. Usually, we then first die on lack of heap memory before 
+# worker throttling would kick in.
+  tomcat:
+    max-threads: 16
+
+# see also https://stackoverflow.com/a/30296748
+spring:
+  jms:
+    pub-sub-domain: true
+
+logging:
+  level:
+    org:
+      cloudfoundry:
+        promregator: WARN
+
+# To be enabled, if ActiveMQ logging shall be activated - see also http://activemq.apache.org/how-do-i-enable-debug-logging.html
+#      apache:
+#        activemq: DEBUG
+
+    reactor:
+      Mono:
+        OnAssembly: WARN
+
+# To be enabled, if you want to have Promregator -> CF Cloud Controller communication being logged
+# Warning! This will expose internal and sensitive information in the logs!
+#      ipc:
+#        netty:
+#          http: DEBUG
+#          channel: DEBUG
+
+# Enable this one, if you want to have network request logging on cloudfoundry-client level
+#    cloudfoundry-client:
+#      request: DEBUG
+#      response: DEBUG
+# For also logging CF token retrieval, you may also add (Warning! This will expose internal and sensitive information in the logs!)
+#      token: DEBUG
+
+management:
+  health.db.enabled: false
+  health.diskspace.enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    info:
+      enabled: true
+    health:
+      show-details: always
